@@ -36,7 +36,7 @@ HARDWARE ABSTRACTION CODE FOR tinyAVR2
 
 #include <Arduino.h>
 
-#if defined(__AVR_ATtinyx24__)
+#if defined(__AVR_ATtinyx24__) || defined(__AVR_ATtinyx14__)
 
 #include "diybms_tinyAVR2.h"
 
@@ -44,8 +44,14 @@ HARDWARE ABSTRACTION CODE FOR tinyAVR2
 #ifdef MILLIS_USE_TIMERA0
 #error "This sketch takes over TCA0 - please use a different timer for millis"
 #endif
-#ifndef MILLIS_USE_TIMERB0
-  #error "This sketch is written for use with TCB0 as the millis timing source"
+#if defined(__AVR_ATtinyx14__)
+  #ifndef MILLIS_USE_TIMERD0
+    #error "This sketch is written for use with TCD0 as the millis timing source"
+  #endif
+#elif defined(__AVR_ATtinyx24__)
+  #ifndef MILLIS_USE_TIMERB0
+    #error "This sketch is written for use with TCB0 as the millis timing source"
+  #endif
 #endif
 
 
@@ -146,7 +152,10 @@ void diyBMSHAL::ConfigurePorts()
   ADC0.CTRLE = 128;
   // WINSRC / WINCM[2:0]
   ADC0.CTRLD = 0;
+
+#if !defined(__AVR_ATtinyx14__)
   ADC0.PGACTRL = 0;
+#endif
 
   // Set pins to initial state
   DumpLoadOff();
@@ -167,13 +176,25 @@ uint16_t diyBMSHAL::BeginADCReading(uint8_t mode)
   ADC0.CTRLA = ADC_ENABLE_bm;
 
   // TIMEBASE[4:0] / REFSEL[2:0]
+#if defined(__AVR_ATtinyx14__)
+  ADC0.CTRLC = ADC_PRESC_enum::ADC_PRESC_DIV32_gc | ADC_REFSEL_enum::ADC_REFSEL_VDDREF_gc; // FOR READING VREF
+#else
   ADC0.CTRLC = TIMEBASE_1US | ADC_REFSEL_enum::ADC_REFSEL_VDD_gc; // FOR READING VREF
+#endif
 
   // Take multiple samples (over sample)
+#if defined(__AVR_ATtinyx14__)
+  ADC0.COMMAND = ADC_STCONV_bm;
+#else
   ADC0.COMMAND = ADC_MODE_BURST_SCALING_gc | ADC_START_IMMEDIATE_gc;
+#endif
   while (!(ADC0.INTFLAGS & ADC_RESRDY_bm))
     ;
+#if defined(__AVR_ATtinyx14__)
+  value = (uint16_t)ADC0.RES;
+#else
   value = (uint16_t)ADC0.RESULT;
+#endif
 
   // Switch off ADC
   ADC0.CTRLA &= ~ADC_ENABLE_bm;
