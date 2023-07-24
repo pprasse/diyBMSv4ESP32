@@ -147,18 +147,8 @@ void victron_message_351()
 
   if (rules.IsChargeAllowed(&mysettings))
   {
-    if (rules.numberOfBalancingModules > 0 && mysettings.stopchargebalance == true)
-    {
-      // Balancing, stop charge
-      data.chargevoltagelimit = rules.lowestBankVoltage / 100;
-      data.maxchargecurrent = 0;
-    }
-    else
-    {
-      // Default - normal behaviour
-      data.chargevoltagelimit = rules.DynamicChargeVoltage();
-      data.maxchargecurrent = rules.DynamicChargeCurrent();
-    }
+    data.chargevoltagelimit = rules.DynamicChargeVoltage();
+    data.maxchargecurrent = rules.DynamicChargeCurrent();
   }
 
   // Discharge settings....

@@ -34,7 +34,9 @@ void Rules::ClearValues()
     }
 
     highestBankVoltage = 0;
+    address_highestBankVoltage = maximum_number_of_banks+1;
     lowestBankVoltage = 0xFFFFFFFF;
+    address_lowestBankVoltage = maximum_number_of_banks+1;
     highestCellVoltage = 0;
     lowestCellVoltage = 0xFFFF;
     highestExternalTemp = -127;
@@ -139,10 +141,12 @@ void Rules::ProcessBank(uint8_t bank)
     if (bankvoltage[bank] > highestBankVoltage)
     {
         highestBankVoltage = bankvoltage[bank];
+        address_highestBankVoltage = bank;
     }
     if (bankvoltage[bank] < lowestBankVoltage)
     {
         lowestBankVoltage = bankvoltage[bank];
+        address_lowestBankVoltage = bank;
     }
 
     if (VoltageRangeInBank(bank) > highestBankRange)
@@ -168,7 +172,10 @@ void Rules::SetWarning(InternalWarningCode warncode)
 void Rules::SetError(InternalErrorCode err)
 {
     if (err > MAXIMUM_InternalErrorCode)
-        return;
+    {
+        ESP_LOGE(TAG, "Error %i is > MAXIMUM_InternalErrorCode, setting %i", err, MAXIMUM_InternalErrorCode);
+        err = (InternalErrorCode)MAXIMUM_InternalErrorCode;
+    }
 
     // Only set error once
     if (ErrorCodes[err] != InternalErrorCode::NoError)
@@ -176,6 +183,7 @@ void Rules::SetError(InternalErrorCode err)
 
     ErrorCodes[err] = err;
     numberOfActiveErrors++;
+    rule_outcome[Rule::BMSError] = true;
     ESP_LOGI(TAG, "Set error %i", err);
 }
 
@@ -186,6 +194,12 @@ void Rules::RunRules(
     uint16_t mins,
     currentmonitoring_struct *currentMonitor)
 {
+    if( _controller_state != ControllerState::Running )
+    {
+        SetError(InternalErrorCode::CommunicationsError);
+    }
+
+
     // Emergency stop signal...
     rule_outcome[Rule::EmergencyStop] = emergencyStop;
 
@@ -425,6 +439,9 @@ bool Rules::SharedChargingDischargingRules(diybms_eeprom_settings *mysettings)
     if (rule_outcome[Rule::ModuleUnderTemperatureExternal])
         return false;
 
+    if( _controller_state != ControllerState::Running )
+        return false;
+
     return true;
 }
 bool Rules::IsChargeAllowed(diybms_eeprom_settings *mysettings)
@@ -448,6 +465,9 @@ bool Rules::IsChargeAllowed(diybms_eeprom_settings *mysettings)
 
     // Individual cell over voltage
     if (highestCellVoltage > mysettings->cellmaxmv)
+        return false;
+
+    if (numberOfBalancingModules > 0 && mysettings->stopchargebalance == true)
         return false;
 
     return true;
