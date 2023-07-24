@@ -5,6 +5,8 @@
 
 #include "defines.h"
 
+extern ControllerState _controller_state;
+
 // Needs to match the ordering on the HTML screen
 // You also need to update "RuleTextDescription" (Rules.cpp)
 // Define a max constant for the highest value (change if you add more rules)
@@ -85,8 +87,11 @@ public:
 
     // Highest pack voltage (millivolts)
     uint32_t highestBankVoltage;
+    uint8_t address_highestBankVoltage;
+
     // Lowest pack voltage (millivolts)
     uint32_t lowestBankVoltage;
+    uint8_t address_lowestBankVoltage;
 
     // Highest cell voltage in the whole system (millivolts)
     uint16_t highestCellVoltage;

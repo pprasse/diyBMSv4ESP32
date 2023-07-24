@@ -70,6 +70,7 @@ static constexpr const char *const TAG = "diybms";
 #include "mqtt.h"
 #include "victron_canbus.h"
 #include "pylon_canbus.h"
+#include "pylonforce_canbus.h"
 #include "string_utils.h"
 
 #include <SPI.h>
@@ -88,7 +89,7 @@ HAL_ESP32 hal;
 volatile bool emergencyStop = false;
 bool _sd_card_installed = false;
 
-// Used for WIFI hostname and also sent to Victron over CANBUS
+// Used for WIFI hostname and also sent to Victron/Pylontech Force over CANBUS
 char hostname[16];
 char ip_string[16]; // xxx.xxx.xxx.xxx
 
@@ -1173,7 +1174,6 @@ void ProcessRules()
   if (receiveProc.HasCommsTimedOut())
   {
     rules.SetError(InternalErrorCode::CommunicationsError);
-    rules.rule_outcome[Rule::BMSError] = true;
   }
 
   if (rules.rule_outcome[Rule::EmergencyStop])
@@ -1189,7 +1189,6 @@ void ProcessRules()
     if (secondsSinceLastMessage > 45)
     {
       rules.SetError(InternalErrorCode::CommunicationsError);
-      rules.rule_outcome[Rule::BMSError] = true;
     }
   }
 
@@ -1261,7 +1260,6 @@ void ProcessRules()
   if (_controller_state == ControllerState::Running && rules.zeroVoltageModuleCount > 0)
   {
     rules.SetError(InternalErrorCode::ZeroVoltModule);
-    rules.rule_outcome[Rule::BMSError] = true;
   }
 
   rules.RunRules(
@@ -2558,11 +2556,11 @@ void ProcessDIYBMSCurrentMonitorInternal()
   ESP_LOGD(TAG, "Date = %u", currentMonitor.modbus.firmwaredatetime);
 */
 }
-void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
+void _send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length, uint32_t flags)
 {
   twai_message_t message;
   message.identifier = identifier;
-  message.flags = TWAI_MSG_FLAG_NONE;
+  message.flags = flags;
   message.data_length_code = length;
 
   memcpy(&message.data, buffer, length);
@@ -2578,9 +2576,18 @@ void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
   else
   {
     ESP_LOGD(TAG, "Sent CAN message 0x%x", identifier);
-    // ESP_LOG_BUFFER_HEX_LEVEL(TAG, &message, sizeof(twai_message_t), esp_log_level_t::ESP_LOG_DEBUG);
+    ESP_LOG_BUFFER_HEXDUMP(TAG, &message.data, message.data_length_code, esp_log_level_t::ESP_LOG_DEBUG);
     canbus_messages_sent++;
   }
+}
+
+void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
+{
+  _send_canbus_message(identifier, buffer, length, TWAI_MSG_FLAG_NONE);
+}
+void send_ext_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
+{
+  _send_canbus_message(identifier, buffer, length, TWAI_MSG_FLAG_EXTD);
 }
 
 [[noreturn]] void canbus_tx(void *)
@@ -2629,8 +2636,11 @@ void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
       // Delay a little whilst sending packets to give ESP32 some breathing room and not flood the CANBUS
       // vTaskDelay(pdMS_TO_TICKS(100));
     }
-
-    if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_VICTRON)
+    else if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_PYLONFORCEH2 )
+    {
+      pylonforce_handle_tx();
+    }
+    else if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_VICTRON)
     {
       // minimum CAN-IDs required for the core functionality are 0x351, 0x355, 0x356 and 0x35A.
 
@@ -2683,6 +2693,10 @@ void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
         if (!(message.flags & TWAI_MSG_FLAG_RTR))
         {
           ESP_LOG_BUFFER_HEXDUMP(TAG, message.data, message.data_length_code, ESP_LOG_DEBUG);
+          if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_PYLONFORCEH2 )
+          {
+            pylonforce_handle_rx(&message);
+          }
         }
       }
       else if (res == ESP_ERR_TIMEOUT)
