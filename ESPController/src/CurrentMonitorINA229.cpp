@@ -272,9 +272,9 @@ float CurrentMonitorINA229::ShuntVoltage()
 
 void CurrentMonitorINA229::TakeReadings()
 {
-    voltage = BusVoltage();
+    voltage = BusVoltage() * CURRENTMON_VOLTAGE_FACTOR;
     current = Current();
-    power = Power();
+    power = Power() * CURRENTMON_VOLTAGE_FACTOR;
     temperature = DieTemperature();
     SOC = CalculateSOC();
 
@@ -474,11 +474,16 @@ bool CurrentMonitorINA229::Configure(uint16_t shuntmv,
     registers.R_SOVL = ConvertTo2sComp((((float)overcurrentlimit / 100.0F) * 1000.0F / 1.25F) * full_scale_adc / registers.shunt_max_current);
     // Shunt UNDER Limit (under current limit) = undercurrent protection
     registers.R_SUVL = ConvertTo2sComp((((float)undercurrentlimit / 100.0F) * 1000.0F / 1.25F) * full_scale_adc / registers.shunt_max_current);
+
+    // do not divide fullchargevolt by CURRENTMON_VOLTAGE_FACTOR, as the private var "voltage" has already been multiplied by factor
+    // when it is compared to fullchargevolt
+
     // Bus Overvoltage (overvoltage protection).
-    registers.R_BOVL = ConvertTo2sComp(((float)overvoltagelimit / 100.0F) / 0.003125F);
+    registers.R_BOVL = ConvertTo2sComp(((float)overvoltagelimit / 100.0F / CURRENTMON_VOLTAGE_FACTOR) / 0.003125F);
     // Bus under voltage protection
-    registers.R_BUVL = ConvertTo2sComp(((float)undervoltagelimit / 100.0F) / 0.003125F);
+    registers.R_BUVL = ConvertTo2sComp(((float)undervoltagelimit / 100.0F / CURRENTMON_VOLTAGE_FACTOR) / 0.003125F);
     // temperature limit
+
     registers.R_TEMP_LIMIT = (int16_t)temperaturelimit / (float)0.0078125;
 
     // Default Power limit = 5kW

@@ -4,6 +4,7 @@
 #include "defines.h"
 #include "Rules.h"
 #include <driver/twai.h>
+#include "currentmon.h"
 
 /* shifts left the '1' over pos times to create a single HIGH bit at location pos. */
 //#define BIT(pos) ( 1<<(pos) )

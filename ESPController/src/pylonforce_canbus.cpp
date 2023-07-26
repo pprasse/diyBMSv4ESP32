@@ -172,7 +172,7 @@ void pylonforce_message_4210()
   data.stateofhealthvalue = 100;
 
   // Only send CANBUS message if we have a current monitor enabled & valid
-  if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings && (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS || mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_INTERNAL))
+  if (CurrentMonitorCanSOC())
   {
     data.stateofchargevalue = rules.StateOfChargeWithRulesApplied(&mysettings, currentMonitor.stateofcharge);
 

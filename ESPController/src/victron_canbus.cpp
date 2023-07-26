@@ -173,7 +173,7 @@ void victron_message_355()
     // uint16_t highresolutionsoc;
   };
 
-  if (_controller_state == ControllerState::Running && mysettings.currentMonitoringEnabled && currentMonitor.validReadings && (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS || mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_INTERNAL))
+  if (_controller_state == ControllerState::Running && CurrentMonitorCanSOC())
   {
     data355 data;
     // 0 SOC value un16 1 %
