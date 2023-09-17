@@ -46,7 +46,7 @@ void pylonforce_message_7310()
   data.software_version_major = 0x01;
   data.software_version_minor = 0x02;
 
-  ESP_LOGV("TAG", "Sending CAN 0x7310+%i:\n \
+  ESP_LOGV(TAG, "Sending CAN 0x7310+%i:\n \
     ------------------------------\n \
     hardware_version=0x%x\n \
     hardware_version_major=0x%x\n \
@@ -91,7 +91,7 @@ void pylonforce_message_7320()
   data.ah_number = mysettings.nominalbatcap;
 
 
-  ESP_LOGV("TAG", "Sending CAN 0x7320+%i:\n \
+  ESP_LOGV(TAG, "Sending CAN 0x7320+%i:\n \
     ------------------------------\n \
     battery_series_cells=%d\n \
     battery_module_in_series_qty=%d\n \
@@ -161,7 +161,7 @@ void pylonforce_message_4210()
   // Temperature 0.1 C using external temperature sensor
   if (rules.moduleHasExternalTempSensor)
   {
-    data.temperature = (uint16_t)max(0, (int16_t)(rules.highestExternalTemp - 100) * (int16_t)10);
+    data.temperature = (uint16_t)max(0, (int16_t)(rules.highestExternalTemp + 100) * (int16_t)10);
   }
   else
   {
@@ -183,7 +183,7 @@ void pylonforce_message_4210()
     data.stateofchargevalue = 50;
   }
 
-  ESP_LOGV("TAG", "Sending CAN 0x4210+%i:\n \
+  ESP_LOGV(TAG, "Sending CAN 0x4210+%i:\n \
     ------------------------------\n \
     voltage=%d\n \
     current=%d\n \
@@ -219,7 +219,32 @@ void pylonforce_message_4220()
   data4220 data;
   memset(&data, 0, sizeof(data4220));
 
-  ESP_LOGV("TAG", "Sending CAN 0x4220+%i:\n \
+  //  Defaults (do nothing)
+  data.battery_charge_voltage = 0;
+  data.battery_charge_current_limit = 30000;  // effective zero after applied offsets
+  data.battery_discharge_current_limit = 30000; // effective zero after applied offsets
+  data.battery_discharge_voltage = mysettings.dischargevolt;
+
+  if (rules.IsChargeAllowed(&mysettings))
+  {
+    data.battery_charge_voltage = rules.DynamicChargeVoltage();
+    data.battery_charge_current_limit = 30000 + (uint16_t)max((int16_t)0,rules.DynamicChargeCurrent());
+  }
+  else
+  {
+    ESP_LOGV(TAG, "Charging not allowed in message 4220");
+  }
+
+  if (rules.IsDischargeAllowed(&mysettings))
+  {
+    data.battery_discharge_current_limit = 30000 - (uint16_t)max((uint16_t)0,mysettings.dischargecurrent);
+  }
+  else
+  {
+    ESP_LOGV(TAG, "Discharging not allowed in message 4220");
+  }
+
+  ESP_LOGV(TAG, "Sending CAN 0x4220+%i:\n \
     ------------------------------\n \
     battery_charge_voltage=%d\n \
     battery_discharge_voltage=%d\n \
@@ -232,23 +257,6 @@ void pylonforce_message_4220()
     data.battery_charge_current_limit,
     data.battery_discharge_current_limit
   );
-
-  //  Defaults (do nothing)
-  data.battery_charge_voltage = 0;
-  data.battery_charge_current_limit = 30000;  // effective zero after applied offsets
-  data.battery_discharge_current_limit = 30000; // effective zero after applied offsets
-  data.battery_discharge_voltage = mysettings.dischargevolt;
-
-  if (rules.IsChargeAllowed(&mysettings))
-  {
-    data.battery_charge_voltage = rules.DynamicChargeVoltage();
-    data.battery_charge_current_limit = 30000 + (uint16_t)max((int16_t)0,rules.DynamicChargeCurrent());
-  }
-
-  if (rules.IsDischargeAllowed(&mysettings))
-  {
-    data.battery_discharge_current_limit = 30000 - (uint16_t)max((uint16_t)0,mysettings.dischargecurrent);
-  }
 
   send_ext_canbus_message(0x4220+mysettings.canbus_equipment_addr, (uint8_t *)&data, sizeof(data4220));
 }
@@ -273,7 +281,7 @@ void pylonforce_message_4230()
   data.max_battery_cell_number = rules.address_HighestCellVoltage;
   data.min_battery_cell_number = rules.address_LowestCellVoltage;
 
-  ESP_LOGV("TAG", "Sending CAN 0x4230+%i:\n \
+  ESP_LOGV(TAG, "Sending CAN 0x4230+%i:\n \
     ------------------------------\n \
     max_single_battery_cell_voltage=%d\n \
     min_single_battery_cell_voltage=%d\n \
@@ -295,8 +303,8 @@ void pylonforce_message_4240()
 {
   struct data4240
   {
-    uint16_t max_single_battery_cell_temperature; // temperature of the highest cell, resolution 0.1°C, offset -100°C
-    uint16_t min_single_battery_cell_temperature; // temperature of the lowest cell, resolution 0.1°C, offset -100°C
+    uint16_t max_single_battery_cell_temperature; // temperature of the highest cell, resolution 0.1°C, offset 100°C
+    uint16_t min_single_battery_cell_temperature; // temperature of the lowest cell, resolution 0.1°C, offset 100°C
     uint16_t max_battery_cell_number; // Number of the highest temperature cell, 0 - X
     uint16_t min_battery_cell_number; // Number of the lowest temperature cell, 0 - X
   };
@@ -306,8 +314,8 @@ void pylonforce_message_4240()
 
   if (rules.moduleHasExternalTempSensor)
   {
-    data.max_single_battery_cell_temperature = (rules.highestExternalTemp-100)*10;
-    data.min_single_battery_cell_temperature = (rules.lowestExternalTemp-100)*10;
+    data.max_single_battery_cell_temperature = (rules.highestExternalTemp+100)*10;
+    data.min_single_battery_cell_temperature = (rules.lowestExternalTemp+100)*10;
     data.max_battery_cell_number = rules.address_highestExternalTemp;
     data.min_battery_cell_number = rules.address_lowestExternalTemp;
   }
@@ -320,7 +328,7 @@ void pylonforce_message_4240()
   }
 
 
-  ESP_LOGV("TAG", "Sending CAN 0x4240+%i:\n \
+  ESP_LOGV(TAG, "Sending CAN 0x4240+%i:\n \
     ------------------------------\n \
     max_single_battery_cell_temperature=%d\n \
     min_single_battery_cell_temperature=%d\n \
@@ -482,7 +490,7 @@ void pylonforce_message_4250()
 //  data.alarm_cht = 1;
 //  data.protect_cht = 1;
 
-  ESP_LOGV("TAG", "Sending CAN 0x4250+%i:\n \
+  ESP_LOGV(TAG, "Sending CAN 0x4250+%i:\n \
     ------------------------------\n \
     basic_status_reserve7=%d\n \
     basic_status_reserve6=%d\n \
@@ -614,7 +622,7 @@ void pylonforce_message_4260()
   data.max_battery_module_number = rules.address_highestBankVoltage;
   data.min_battery_module_number = rules.address_lowestBankVoltage;
 
-  ESP_LOGV("TAG", "Sending CAN 0x4260+%i:\n \
+  ESP_LOGV(TAG, "Sending CAN 0x4260+%i:\n \
     ------------------------------\n \
     max_single_battery_module_voltage=%d\n \
     min_single_battery_module_voltage=%d\n \
@@ -637,8 +645,8 @@ void pylonforce_message_4270()
 {
   struct data4270
   {
-    uint16_t max_single_battery_module_temperature; // temperature of the highest module, resolution 0.1°C, offset -100°C
-    uint16_t min_single_battery_module_temperature; // temperature of the lowest module, resolution 0.1°C, offset -100°C
+    uint16_t max_single_battery_module_temperature; // temperature of the highest module, resolution 0.1°C, offset 100°C
+    uint16_t min_single_battery_module_temperature; // temperature of the lowest module, resolution 0.1°C, offset 100°C
     uint16_t max_battery_module_number; // Number of the highest temperature module, 0 - X
     uint16_t min_battery_module_number; // Number of the lowest temperature module, 0 - X
   };
@@ -648,20 +656,20 @@ void pylonforce_message_4270()
 
   if (rules.moduleHasExternalTempSensor)
   {
-    data.max_single_battery_module_temperature = (rules.highestExternalTemp-100)*10;
-    data.min_single_battery_module_temperature = (rules.lowestExternalTemp-100)*10;
-    data.max_battery_module_number = 1; // TODO
-    data.min_battery_module_number = 2; // TODO
+    data.max_single_battery_module_temperature = (rules.highestExternalTemp+100)*10;
+    data.min_single_battery_module_temperature = (rules.lowestExternalTemp+100)*10;
+    data.max_battery_module_number = 0; // TODO
+    data.min_battery_module_number = 0; // TODO
   }
   else
   {
     data.max_single_battery_module_temperature = 1000+121;  // 12.1°C
     data.min_single_battery_module_temperature = 1000+121;  // 12.1°C
-    data.max_battery_module_number = 1;
-    data.min_battery_module_number = 2;
+    data.max_battery_module_number = 0;
+    data.min_battery_module_number = 0;
   }
 
-  ESP_LOGV("TAG", "Sending CAN 0x4270+%i:\n \
+  ESP_LOGV(TAG, "Sending CAN 0x4270+%i:\n \
     ------------------------------\n \
     max_single_battery_module_temperature=%d\n \
     min_single_battery_module_temperature=%d\n \
@@ -708,7 +716,7 @@ void pylonforce_message_4280()
     data.discharge_forbidden_mark = 0xAA;
   }
 
-  ESP_LOGV("TAG", "Sending CAN 0x4280+%i:\n \
+  ESP_LOGV(TAG, "Sending CAN 0x4280+%i:\n \
     ------------------------------\n \
     charge_forbidden_mark=0x%x\n \
     discharge_forbidden_mark=0x%x\n \
@@ -748,7 +756,7 @@ void pylonforce_message_4290()
   data4290 data;
   memset(&data, 0, sizeof(data4290));
 
-  ESP_LOGV("TAG", "Sending CAN 0x4290+%i:\n \
+  ESP_LOGV(TAG, "Sending CAN 0x4290+%i:\n \
     ------------------------------\n \
     fault_expansion_abnormal_safety_functions=%d\n \
     fault_expansion_abnormal_power_on_self_test=%d\n \
@@ -782,7 +790,7 @@ void pylonforce_handle_tx()
 
   if( seen_identify_message || first_handle_tx )
   {
-    ESP_LOGD(TAG, "seen_identify_message\n");
+    ESP_LOGV(TAG, "seen_identify_message\n");
     vTaskDelay(pdMS_TO_TICKS(60));
     pylonforce_message_7310();
     vTaskDelay(pdMS_TO_TICKS(60));
@@ -795,7 +803,7 @@ void pylonforce_handle_tx()
   // no else here
   if( seen_ensemble_information || first_handle_tx )
   {
-    ESP_LOGD(TAG, "seen_ensemble_information\n");
+    ESP_LOGV(TAG, "seen_ensemble_information\n");
     vTaskDelay(pdMS_TO_TICKS(60));
     pylonforce_message_4210();
     vTaskDelay(pdMS_TO_TICKS(60));
