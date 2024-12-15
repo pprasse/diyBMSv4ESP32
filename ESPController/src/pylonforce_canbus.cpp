@@ -20,8 +20,14 @@ static constexpr const char *const TAG = "diybms-pyforce";
 #include "pylonforce_canbus.h"
 #include "mqtt.h"
 
-extern bool mqttClient_connected;
-extern esp_mqtt_client_handle_t mqtt_client;
+#ifdef PYLONFORCE_DEBUG
+void pylonforce_debug( char *info );
+  #ifdef PYLONFORCE_CANBUS_MQTT
+    extern bool mqttClient_connected;
+    extern esp_mqtt_client_handle_t mqtt_client;
+    std::string canbus_mqtt;
+  #endif
+#endif
 
 // we want packed structures so the compiler adds no padding
 #pragma pack(push, 1)
@@ -50,6 +56,28 @@ void pylonforce_message_7310()
   data.software_version_major = 0x01;
   data.software_version_minor = 0x02;
 
+#ifdef PYLONFORCE_DEBUG
+  char info[1024];
+  snprintf( info, sizeof(info), "{ \"canMessage\": \"0x7310+%i\",\n \
+\"hardware_version\": \"0x%x\",\n \
+\"hardware_version_major\": \"0x%x\",\n \
+\"hardware_version_minor\": \"0x%x\",\n \
+\"software_version_major\": \"0x%x\",\n \
+\"software_version_minor\": \"0x%x\",\n \
+\"software_version_development_major\": \"0x%x\",\n \
+\"software_version_development_minor\": \"0x%x\" }\n",
+    mysettings.canbus_equipment_addr,
+    data.hardware_version,
+    data.hardware_version_major,
+    data.hardware_version_minor,
+    data.software_version_major,
+    data.software_version_minor,
+    data.software_version_development_major,
+    data.software_version_development_minor
+  );
+  pylonforce_debug(info);
+#endif
+
   send_ext_canbus_message(0x7310+mysettings.canbus_equipment_addr, (uint8_t *)&data, sizeof(data7310));
 }
 
@@ -73,6 +101,25 @@ void pylonforce_message_7320()
   data.cell_qty_in_module = mysettings.totalNumberOfSeriesModules / data.battery_module_in_series_qty;
   data.voltage_level = (uint16_t)((uint32_t)mysettings.cellmaxmv * (uint32_t)mysettings.totalNumberOfSeriesModules / (uint32_t)1000);
   data.ah_number = mysettings.nominalbatcap;
+
+
+#ifdef PYLONFORCE_DEBUG
+  char info[1024];
+  snprintf( info, sizeof(info), "{ \"canMessage\": \"0x7320+%i\",\n \
+\"battery_series_cells\": %d,\n \
+\"battery_module_in_series_qty\": %d,\n \
+\"cell_qty_in_module\": %d,\n \
+\"voltage_level\": %d,\n \
+\"ah_number\": %d }\n",
+    mysettings.canbus_equipment_addr,
+    data.battery_series_cells,
+    data.battery_module_in_series_qty,
+    data.cell_qty_in_module,
+    data.voltage_level,
+    data.ah_number
+  );
+  pylonforce_debug(info);
+#endif
 
   send_ext_canbus_message(0x7320+mysettings.canbus_equipment_addr, (uint8_t *)&data, sizeof(data7320));
 }
@@ -146,6 +193,24 @@ void pylonforce_message_4210()
     data.stateofhealthvalue = 100;
   }
 
+#ifdef PYLONFORCE_DEBUG
+  char info[1024];
+  snprintf( info, sizeof(info), "{ \"canMessage\": \"0x4210+%i\",\n \
+\"voltage\": %d,\n \
+\"current\": %d,\n \
+\"temperature\": %d,\n \
+\"stateofchargevalue\": %d,\n \
+\"stateofhealthvalue\": %d }\n",
+    mysettings.canbus_equipment_addr,
+    data.voltage,
+    data.current,
+    data.temperature,
+    data.stateofchargevalue,
+    data.stateofhealthvalue
+  );
+  pylonforce_debug(info);
+#endif
+
   send_ext_canbus_message(0x4210+mysettings.canbus_equipment_addr, (uint8_t *)&data, sizeof(data4210));
 }
 
@@ -191,6 +256,22 @@ void pylonforce_message_4220()
     ESP_LOGV(TAG, "Discharging not allowed in message 4220");
   }
 
+#ifdef PYLONFORCE_DEBUG
+  char info[1024];
+  snprintf( info, sizeof(info), "{ \"canMessage\": \"0x4220+%i\",\n \
+\"battery_charge_voltage\": %d,\n \
+\"battery_discharge_voltage\": %d,\n \
+\"battery_charge_current_limit\": %d,\n \
+\"battery_discharge_current_limit\": %d }\n",
+    mysettings.canbus_equipment_addr,
+    data.battery_charge_voltage,
+    data.battery_discharge_voltage,
+    data.battery_charge_current_limit,
+    data.battery_discharge_current_limit
+  );
+  pylonforce_debug(info);
+#endif
+
   send_ext_canbus_message(0x4220+mysettings.canbus_equipment_addr, (uint8_t *)&data, sizeof(data4220));
 }
 
@@ -213,6 +294,22 @@ void pylonforce_message_4230()
   data.min_single_battery_cell_voltage = rules.lowestCellVoltage;
   data.max_battery_cell_number = rules.address_HighestCellVoltage;
   data.min_battery_cell_number = rules.address_LowestCellVoltage;
+
+#ifdef PYLONFORCE_DEBUG
+  char info[1024];
+  snprintf( info, sizeof(info), "{ \"canMessage\": \"0x4230+%i\",\n \
+\"max_single_battery_cell_voltage\": %d,\n \
+\"min_single_battery_cell_voltage\": %d,\n \
+\"max_battery_cell_number\": %d,\n \
+\"min_battery_cell_number\": %d }\n",
+    mysettings.canbus_equipment_addr,
+    data.max_single_battery_cell_voltage,
+    data.min_single_battery_cell_voltage,
+    data.max_battery_cell_number,
+    data.min_battery_cell_number
+  );
+  pylonforce_debug(info);
+#endif
 
   send_ext_canbus_message(0x4230+mysettings.canbus_equipment_addr, (uint8_t *)&data, sizeof(data4230));
 }
@@ -245,6 +342,22 @@ void pylonforce_message_4240()
     data.max_battery_cell_number = 1;
     data.min_battery_cell_number = 2;
   }
+
+#ifdef PYLONFORCE_DEBUG
+  char info[1024];
+  snprintf( info, sizeof(info), "{ \"canMessage\": \"0x4240+%i\",\n \
+\"max_single_battery_cell_temperature\": %d,\n \
+\"min_single_battery_cell_temperature\": %d,\n \
+\"max_battery_cell_number\": %d,\n \
+\"min_battery_cell_number\": %d }\n",
+    mysettings.canbus_equipment_addr,
+    data.max_single_battery_cell_temperature,
+    data.min_single_battery_cell_temperature,
+    data.max_battery_cell_number,
+    data.min_battery_cell_number
+  );
+  pylonforce_debug(info);
+#endif
 
   send_ext_canbus_message(0x4240+mysettings.canbus_equipment_addr, (uint8_t *)&data, sizeof(data4240));
 }
@@ -396,6 +509,118 @@ void pylonforce_message_4250()
 //  data.alarm_cht = 1;
 //  data.protect_cht = 1;
 
+#ifdef PYLONFORCE_DEBUG
+  char info[1500];
+  snprintf( info, sizeof(info), "{ \"canMessage\": \"0x4250+%i\",\n \
+\"basic_status_reserve7\": %d,\n \
+\"basic_status_reserve6\": %d,\n \
+\"basic_status_reserve5\": %d,\n \
+\"basic_status_balance_charge_request\": %d,\n \
+\"basic_status_force_charge_request\": %d,\n \
+\"basic_status_status\": %d,\n \
+\n \
+\"cycle_period\": %d,\n \
+\n \
+\"error_other\": %d,\n \
+\"error_damage\": %d,\n \
+\"error_relay\": %d,\n \
+\"error_rv\": %d,\n \
+\"error_dcov\": %d,\n \
+\"error_in_comm\": %d,\n \
+\"error_tmpr\": %d,\n \
+\"error_volt_sensor\": %d,\n \
+\n \
+\"alarm_reserve15\": %d,\n \
+\"alarm_reserve14\": %d,\n \
+\"alarm_reserve13\": %d,\n \
+\"alarm_reserve12\": %d,\n \
+\"alarm_mhv\": %d,\n \
+\"alarm_mlv\": %d,\n \
+\"alarm_doca\": %d,\n \
+\"alarm_coca\": %d,\n \
+\"alarm_dht\": %d,\n \
+\"alarm_dlt\": %d,\n \
+\"alarm_cht\": %d,\n \
+\"alarm_clt\": %d,\n \
+\"alarm_phv\": %d,\n \
+\"alarm_plv\": %d,\n \
+\"alarm_bhv\": %d,\n \
+\"alarm_blv\": %d,\n \
+\n \
+\"protect_reserve15\": %d,\n \
+\"protect_reserve14\": %d,\n \
+\"protect_reserve13\": %d,\n \
+\"protect_reserve12\": %d,\n \
+\"protect_mhv\": %d,\n \
+\"protect_mlv\": %d,\n \
+\"protect_doca\": %d,\n \
+\"protect_coca\": %d,\n \
+\"protect_dht\": %d,\n \
+\"protect_dlt\": %d,\n \
+\"protect_cht\": %d,\n \
+\"protect_clt\": %d,\n \
+\"protect_phv\": %d,\n \
+\"protect_plv\": %d,\n \
+\"protect_bhv\": %d,\n \
+\"protect_blv\": %d }\n",
+
+  mysettings.canbus_equipment_addr,
+
+	data.basic_status_reserve7,
+	data.basic_status_reserve6,
+	data.basic_status_reserve5,
+	data.basic_status_balance_charge_request,
+	data.basic_status_force_charge_request,
+	data.basic_status_status,
+
+	data.cycle_period,
+
+	data.error_other, 
+	data.error_damage, 
+	data.error_relay, 
+	data.error_rv, 
+	data.error_dcov, 
+	data.error_in_comm, 
+	data.error_tmpr, 
+	data.error_volt_sensor, 
+
+	data.alarm_reserve15,
+	data.alarm_reserve14,
+	data.alarm_reserve13,
+	data.alarm_reserve12,
+	data.alarm_mhv, 
+	data.alarm_mlv, 
+	data.alarm_doca, 
+	data.alarm_coca, 
+	data.alarm_dht, 
+	data.alarm_dlt, 
+	data.alarm_cht, 
+	data.alarm_clt, 
+	data.alarm_phv, 
+	data.alarm_plv, 
+	data.alarm_bhv, 
+	data.alarm_blv, 
+
+	data.protect_reserve15,
+	data.protect_reserve14,
+	data.protect_reserve13,
+	data.protect_reserve12,
+	data.protect_mhv, 
+	data.protect_mlv, 
+	data.protect_doca, 
+	data.protect_coca, 
+	data.protect_dht, 
+	data.protect_dlt, 
+	data.protect_cht, 
+	data.protect_clt, 
+	data.protect_phv, 
+	data.protect_plv, 
+	data.protect_bhv, 
+	data.protect_blv
+  );
+  pylonforce_debug(info);
+#endif
+
   send_ext_canbus_message(0x4250+mysettings.canbus_equipment_addr, (uint8_t *)&data, sizeof(data4250));
 }
 
@@ -418,6 +643,22 @@ void pylonforce_message_4260()
   data.min_single_battery_module_voltage = rules.lowestBankVoltage;
   data.max_battery_module_number = rules.address_highestBankVoltage;
   data.min_battery_module_number = rules.address_lowestBankVoltage;
+
+#ifdef PYLONFORCE_DEBUG
+  char info[1024];
+  snprintf( info, sizeof(info), "{ \"canMessage\": \"0x4260+%i\",\n \
+\"max_single_battery_module_voltage\": %d,\n \
+\"min_single_battery_module_voltage\": %d,\n \
+\"max_battery_module_number\": %d,\n \
+\"min_battery_module_number\": %d }\n",
+    mysettings.canbus_equipment_addr,
+    data.max_single_battery_module_voltage,
+    data.min_single_battery_module_voltage,
+    data.max_battery_module_number,
+    data.min_battery_module_number
+  );
+  pylonforce_debug(info);
+#endif
 
   send_ext_canbus_message(0x4260+mysettings.canbus_equipment_addr, (uint8_t *)&data, sizeof(data4260));
 }
@@ -452,6 +693,22 @@ void pylonforce_message_4270()
     data.min_battery_module_number = 0;
   }
 
+#ifdef PYLONFORCE_DEBUG
+  char info[1024];
+  snprintf( info, sizeof(info), "{ \"canMessage\": \"0x4270+%i\",\n \
+\"max_single_battery_module_temperature\": %d,\n \
+\"min_single_battery_module_temperature\": %d,\n \
+\"max_battery_module_number\": %d,\n \
+\"min_battery_module_number\": %d }\n",
+    mysettings.canbus_equipment_addr,
+    data.max_single_battery_module_temperature,
+    data.min_single_battery_module_temperature,
+    data.max_battery_module_number,
+    data.min_battery_module_number
+  );
+  pylonforce_debug(info);
+#endif
+
   send_ext_canbus_message(0x4270+mysettings.canbus_equipment_addr, (uint8_t *)&data, sizeof(data4270));
 }
 
@@ -485,6 +742,18 @@ void pylonforce_message_4280()
     data.discharge_forbidden_mark = 0xAA;
   }
 
+#ifdef PYLONFORCE_DEBUG
+  char info[1024];
+  snprintf( info, sizeof(info), "{ \"canMessage\": \"0x4280+%i\",\n \
+\"charge_forbidden_mark\": \"0x%x\",\n \
+\"discharge_forbidden_mark\": \"0x%x\" }\n",
+    mysettings.canbus_equipment_addr,
+    data.charge_forbidden_mark,
+    data.discharge_forbidden_mark
+  );
+  pylonforce_debug(info);
+#endif
+
   send_ext_canbus_message(0x4280+mysettings.canbus_equipment_addr, (uint8_t *)&data, sizeof(data4280));
 }
 
@@ -514,6 +783,24 @@ void pylonforce_message_4290()
 
   data4290 data;
   memset(&data, 0, sizeof(data4290));
+
+#ifdef PYLONFORCE_DEBUG
+  char info[1024];
+  snprintf( info, sizeof(info), "{ \"canMessage\": \"0x4290+%i\",\n \
+\"fault_expansion_abnormal_safety_functions\": %d,\n \
+\"fault_expansion_abnormal_power_on_self_test\": %d,\n \
+\"fault_expansion_abnormal_internal_bus\": %d,\n \
+\"fault_expansion_abnormal_bmic\": %d,\n \
+\"fault_expansion_abnormal_shutdown_circuit\": %d }\n",
+    mysettings.canbus_equipment_addr,
+    data.fault_expansion_abnormal_safety_functions,
+    data.fault_expansion_abnormal_power_on_self_test,
+    data.fault_expansion_abnormal_internal_bus,
+    data.fault_expansion_abnormal_bmic,
+    data.fault_expansion_abnormal_shutdown_circuit
+  );
+  pylonforce_debug(info);
+#endif
 
   send_ext_canbus_message(0x4290+mysettings.canbus_equipment_addr, (uint8_t *)&data, sizeof(data4290));
 }
@@ -649,18 +936,102 @@ In this 5 minutes, if there is a protection alarm, BMS will cut off the relay as
      */
     
 
-    uint8_t data[8];
-    memset(&data, 0, sizeof(data));
+  struct data8250
+  {
+    uint8_t act_on_command;
+
+    uint8_t reserve1;
+    uint8_t reserve2;
+    uint8_t reserve3;
+    uint8_t reserve4;
+    uint8_t reserve5;
+    uint8_t reserve6;
+    uint8_t reserve7;
+  };
+
+    struct data8250 data;
+    memset(&data, 0, sizeof(data8250));
 
     // TODO: reply: OK, will act this command immediately
-    //data[0] = 0xAA;
+    //data.act_on_command = 0xAA;
 
     // reply: won`t act this command
-    data[0] = 0x00;
+    data.act_on_command = 0x00;
 
-    send_ext_canbus_message(0x8250+mysettings.canbus_equipment_addr, (uint8_t *)&data, sizeof(data));
+#ifdef PYLONFORCE_DEBUG
+  char info[1024];
+  snprintf( info, sizeof(info), "{ \"canMessage\": \"0x8250+%i\",\n \
+\"act_on_command\": \"0x%x\" }\n",
+    mysettings.canbus_equipment_addr,
+    data.act_on_command
+  );
+  pylonforce_debug(info);
+#endif
+
+    send_ext_canbus_message(0x8250+mysettings.canbus_equipment_addr, (uint8_t *)&data, sizeof(data8250));
   }
 }
+
+#ifdef PYLONFORCE_CANBUS_MQTT
+
+/// Utility function for publishing an MQTT message.
+///
+/// @param topic Topic to publish the message to.
+/// @param payload Message payload to be published.
+/// @param clear_payload When true @param payload will be cleared upon sending.
+static inline void publish_message(std::string &topic, std::string &payload, bool clear_payload = true)
+{
+    static constexpr int MQTT_QUALITY_OF_SERVICE = 1;
+    static constexpr int MQTT_RETAIN_MESSAGE = 0;
+
+    if (mqtt_client && mqttClient_connected)
+    {
+        int id = esp_mqtt_client_publish(
+            mqtt_client, topic.c_str(), payload.c_str(), payload.length(),
+            MQTT_QUALITY_OF_SERVICE, MQTT_RETAIN_MESSAGE);
+        ESP_LOGD(TAG, "Topic:%s, ID:%d, Length:%i", topic.c_str(), id, payload.length());
+        ESP_LOGV(TAG, "Payload:%s", payload.c_str());
+    }
+
+    if (clear_payload)
+    {
+        payload.clear();
+        payload.shrink_to_fit();
+    }
+}
+#endif // PYLONFORCE_CANBUS_MQTT
+
+
+#ifdef PYLONFORCE_DEBUG
+void pylonforce_debug( char *info )
+{
+    ESP_LOGI( TAG, "\n\x1e%s\n", info );
+
+#ifdef PYLONFORCE_CANBUS_MQTT
+    if (!mysettings.mqtt_enabled)
+    {
+        return;
+    }
+
+    if (!wifi_isconnected)
+    {
+        return;
+    }
+
+    if (mqttClient_connected == false)
+    {
+        return;
+    }
+
+    //ESP_LOGI(TAG, "Outputs status payload");
+    if( canbus_mqtt.length() < 4096 )
+    {
+        canbus_mqtt.append("\x1e");
+        canbus_mqtt.append(info);
+    }
+  #endif
+}
+#endif
 
 #pragma pack(pop)
 
